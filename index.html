@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>Trade IA — Análise de mercado</title>
+<style>
+:root{--bg:#0b1220;--panel:#121d2e;--panel2:#18263a;--text:#edf3fb;--muted:#9aabc0;--line:#26364d;--green:#31c48d;--red:#fb7185;--yellow:#fbbf24;--blue:#67a7ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px 16px;background:linear-gradient(135deg,#14253d,#101827);border-bottom:1px solid var(--line)}
+.wrap{max-width:1050px;margin:auto;padding:0 14px}h1{font-size:25px;margin:0 0 5px;letter-spacing:.3px}.sub{color:var(--muted);font-size:13px}
+main{padding:18px 0 40px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.k{color:var(--muted);font-size:12px}.v{font-size:23px;font-weight:750;margin-top:5px}.small{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.panel{margin-bottom:14px}.panel h2{font-size:17px;margin:0 0 12px}
+input,select,button{font:inherit;border-radius:9px;padding:10px 12px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+input[type=file]{max-width:100%;font-size:12px}button{cursor:pointer;background:#2563eb;border:0;font-weight:650}button.secondary{background:var(--panel2);border:1px solid var(--line)}button:active{transform:scale(.99)}
+.pill{display:inline-block;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:750;background:#334155;color:#e2e8f0}
+.buy{background:#064e3b;color:#a7f3d0}.sell{background:#7f1d1d;color:#fecaca}.wait{background:#713f12;color:#fde68a}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.metric{background:var(--panel2);padding:10px;border-radius:10px}.metric b{display:block;margin-top:4px;font-size:17px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.tablewrap{overflow-x:auto}.notice{padding:11px 12px;border-radius:10px;background:#332b16;color:#fde68a;font-size:12px;line-height:1.5}
+.good{color:var(--green)}.bad{color:var(--red)}.muted{color:var(--muted)}
+canvas{width:100%;height:230px;background:#0d1726;border-radius:10px}
+footer{color:var(--muted);font-size:11px;line-height:1.5;padding:5px 0 25px}
+@media(max-width:650px){.grid{grid-template-columns:repeat(2,1fr)}.v{font-size:20px}.metrics{grid-template-columns:repeat(2,1fr)}h1{font-size:22px}.row>*{flex:1 1 140px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>◈ TRADE IA</h1><div class="sub">Análise técnica e simulador de estratégias • Versão 1.0</div></div></header>
+<main class="wrap">
+  <div class="notice" style="margin-bottom:14px"><b>Modo de demonstração:</b> este painel não envia ordens e não está conectado a corretoras. Os sinais são regras técnicas experimentais, não recomendações nem previsões. Comece importando um CSV histórico de cotações.</div>
+  <section class="grid">
+    <div class="card"><div class="k">Ativo analisado</div><div class="v" id="asset">—</div><div class="small" id="period">Aguardando dados</div></div>
+    <div class="card"><div class="k">Último fechamento</div><div class="v" id="lastPrice">—</div><div class="small" id="lastDate">—</div></div>
+    <div class="card"><div class="k">Sinal atual</div><div class="v" style="font-size:18px;margin-top:10px"><span class="pill wait" id="signal">AGUARDAR</span></div><div class="small" id="signalReason">Importe um arquivo para analisar</div></div>
+    <div class="card"><div class="k">RSI (14)</div><div class="v" id="rsi">—</div><div class="small">Índice de força relativa</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>1. Carregar cotações</h2>
+    <div class="row">
+      <input id="ticker" placeholder="Nome do ativo (ex.: PETR4)" value="ATIVO">
+      <input type="file" id="file" accept=".csv,.txt">
+      <button id="loadSample" class="secondary">Usar dados de exemplo</button>
+    </div>
+    <p class="small">CSV com colunas: date, open, high, low, close, volume. Aceita também cabeçalhos em português (data, abertura, máxima, mínima, fechamento, volume). Uma linha por pregão, da mais antiga para a mais recente. Valores decimais com ponto ou vírgula.</p>
+    <p class="small">Dica: exporte dados históricos de uma fonte de sua confiança. A versão atual não busca cotações automaticamente.</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. Indicadores técnicos</h2>
+    <div class="metrics">
+      <div class="metric"><span class="k">EMA 9</span><b id="ema9">—</b></div>
+      <div class="metric"><span class="k">EMA 21</span><b id="ema21">—</b></div>
+      <div class="metric"><span class="k">MACD</span><b id="macd">—</b></div>
+      <div class="metric"><span class="k">Sinal MACD</span><b id="macdSignal">—</b></div>
+      <div class="metric"><span class="k">Volume</span><b id="volume">—</b></div>
+      <div class="metric"><span class="k">Candles carregados</span><b id="count">0</b></div>
+    </div>
+    <div style="margin-top:12px"><canvas id="chart" width="1000" height="300" aria-label="Gráfico do preço e médias móveis"></canvas></div>
+    <div class="small" style="margin-top:6px">Gráfico de fechamento com EMA 9 e EMA 21. Histórico recente.</div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Regras do sinal</h2>
+    <div class="tablewrap"><table><thead><tr><th>Condição</th><th>Leitura atual</th><th>Estado</th></tr></thead><tbody id="checks"><tr><td colspan="3" class="muted">Aguardando dados suficientes.</td></tr></tbody></table></div>
+    <p class="small">Compra potencial: EMA 9 acima da EMA 21, fechamento acima das duas médias, RSI entre 50 e 65, MACD acima da linha de sinal e volume não muito abaixo da média de 20 períodos. Venda/saída: cruzamento baixista ou stop/alvo na simulação. Caso contrário, aguardar.</p>
+  </section>
+
+  <section class="panel">
+    <h2>4. Backtest simplificado (simulação histórica)</h2>
+    <div class="row">
+      <label class="small">Capital virtual (R$)<br><input id="capital" type="number" min="100" step="100" value="1000"></label>
+      <label class="small">Risco por operação (%)<br><input id="risk" type="number" min="0.1" max="2" step="0.1" value="1"></label>
+      <label class="small">Stop (%)<br><input id="stop" type="number" min="0.5" max="10" step="0.5" value="2"></label>
+      <label class="small">Alvo (%)<br><input id="target" type="number" min="0.5" max="20" step="0.5" value="4"></label>
+      <button id="runBacktest">Executar simulação</button>
+    </div>
+    <p class="small">Simulação long-only: entra no fechamento do candle após confirmação, sai por stop, alvo ou sinal contrário. Considera uma posição por vez. Não inclui slippage, impostos, corretagem ou dividendos. Resultados passados não garantem resultados futuros.</p>
+    <div class="metrics" style="margin-top:10px">
+      <div class="metric"><span class="k">Saldo final</span><b id="finalBalance">—</b></div>
+      <div class="metric"><span class="k">Operações</span><b id="trades">—</b></div>
+      <div class="metric"><span class="k">Taxa de acerto</span><b id="winrate">—</b></div>
+      <div class="metric"><span class="k">Resultado líquido</span><b id="net">—</b></div>
+      <div class="metric"><span class="k">Fator de lucro</span><b id="profitFactor">—</b></div>
+      <div class="metric"><span class="k">Drawdown máximo</span><b id="drawdown">—</b></div>
+    </div>
+    <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Data entrada</th><th>Data saída</th><th>Entrada</th><th>Saída</th><th>Resultado</th><th>Motivo</th></tr></thead><tbody id="tradeRows"><tr><td colspan="6" class="muted">Execute uma simulação para ver as operações.</td></tr></tbody></table></div>
+  </section>
+  <footer>Trade IA é uma ferramenta educacional experimental. Indicadores técnicos podem gerar falsos sinais. Não use este painel como única base para decisões financeiras. Nunca invista dinheiro que não pode perder. Confirme os dados, custos, liquidez e regras do ativo antes de qualquer decisão.</footer>
+</main>
+<script>
+let rows=[];
+const $=id=>document.getElementById(id);
+const fmt=n=>Number.isFinite(n)?n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+const money=n=>'R$ '+fmt(n);
+function parseNum(v){if(v==null)return NaN;let s=String(v).trim().replace(/\s/g,'');if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(',','.');return Number(s)}
+function ema(vals,p){let out=[],k=2/(p+1),prev=null;for(let v of vals){prev=prev===null?v:v*k+prev*(1-k);out.push(prev)}return out}
+function rsi(vals,p=14){let out=Array(vals.length).fill(null),g=0,l=0;for(let i=1;i<vals.length;i++){let d=vals[i]-vals[i-1];if(i<=p){g+=Math.max(d,0);l+=Math.max(-d,0);if(i===p){g/=p;l/=p;out[i]=l===0?100:100-100/(1+g/l)}}else{g=(g*(p-1)+Math.max(d,0))/p;l=(l*(p-1)+Math.max(-d,0))/p;out[i]=l===0?100:100-100/(1+g/l)}}return out}
+function calc(data){let c=data.map(x=>x.close),e9=ema(c,9),e21=ema(c,21),m12=ema(c,12),m26=ema(c,26),mac=m12.map((v,i)=>v-m26[i]),ms=ema(mac,9),rv=rsi(c),volavg=data.map((_,i)=>{let a=data.slice(Math.max(0,i-19),i+1).map(x=>x.volume).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0});return data.map((x,i)=>({...x,e9:e9[i],e21:e21[i],mac:mac[i],ms:ms[i],rsi:rv[i],volavg:volavg[i]}))}
+function parseCSV(text){let lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<3)throw Error('O CSV precisa ter cabeçalho e pelo menos duas linhas.');let sep=(lines[0].match(/;/g)||[]).length>(lines[0].match(/,/g)||[]).length?';':',';let head=lines[0].split(sep).map(x=>x.trim().toLowerCase().replace(/["']/g,''));const find=names=>head.findIndex(h=>names.some(n=>h===n||h.includes(n)));let ix={date:find(['date','data','time']),open:find(['open','abertura']),high:find(['high','máxima','maxima']),low:find(['low','mínima','minima']),close:find(['close','fechamento','último','ultimo']),volume:find(['volume','vol'])};if(ix.date<0||ix.close<0)throw Error('Não encontrei as colunas de data e fechamento.');let out=[];for(let line of lines.slice(1)){let a=line.split(sep).map(x=>x.trim().replace(/^"|"$/g,''));let close=parseNum(a[ix.close]);if(!Number.isFinite(close))continue;out.push({date:a[ix.date],open:ix.open>=0?parseNum(a[ix.open]):close,high:ix.high>=0?parseNum(a[ix.high]):close,low:ix.low>=0?parseNum(a[ix.low]):close,close,volume:ix.volume>=0?parseNum(a[ix.volume]):0})}if(out.length<25)throw Error('Use pelo menos 25 candles para calcular os indicadores com mais contexto.');return out.sort((a,b)=>new Date(a.date)-new Date(b.date))}
+function signalAt(x){let checks=[x.e9>x.e21,x.close>x.e9&&x.close>x.e21,x.rsi>=50&&x.rsi<=65,x.mac>x.ms,x.volume>=x.volavg*.8];return {checks,ok:checks.every(Boolean)}}
+function draw(data){let cv=$('chart'),ctx=cv.getContext('2d'),w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);if(!data.length)return;let d=data.slice(-90),all=d.flatMap(x=>[x.close,x.e9,x.e21]).filter(Number.isFinite),min=Math.min(...all),max=Math.max(...all),pad=28;let y=v=>h-pad-(v-min)/(max-min||1)*(h-2*pad),x=i=>pad+i*(w-2*pad)/(d.length-1||1);ctx.strokeStyle='#26364d';ctx.lineWidth=1;for(let j=0;j<5;j++){let yy=pad+j*(h-2*pad)/4;ctx.beginPath();ctx.moveTo(pad,yy);ctx.lineTo(w-pad,yy);ctx.stroke()}function line(key,color){ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;d.forEach((r,i)=>{let yy=y(r[key]);if(i===0)ctx.moveTo(x(i),yy);else ctx.lineTo(x(i),yy)});ctx.stroke()}line('close','#edf3fb');line('e9','#31c48d');line('e21','#67a7ff');ctx.fillStyle='#9aabc0';ctx.font='12px system-ui';ctx.fillText('Preço',pad,15);ctx.fillStyle='#31c48d';ctx.fillText('EMA 9',pad+55,15);ctx.fillStyle='#67a7ff';ctx.fillText('EMA 21',pad+112,15)}
+function render(){if(!rows.length)return;let d=calc(rows),x=d[d.length-1],s=signalAt(x);$('asset').textContent=$('ticker').value||'Ativo';$('period').textContent=d[0].date+' até '+x.date;$('lastPrice').textContent=money(x.close);$('lastDate').textContent=x.date;$('rsi').textContent=fmt(x.rsi);$('ema9').textContent=fmt(x.e9);$('ema21').textContent=fmt(x.e21);$('macd').textContent=fmt(x.mac);$('macdSignal').textContent=fmt(x.ms);$('volume').textContent=Number(x.volume||0).toLocaleString('pt-BR');$('count').textContent=d.length;let sig=$('signal');sig.textContent=s.ok?'COMPRA POTENCIAL':'AGUARDAR';sig.className='pill '+(s.ok?'buy':'wait');$('signalReason').textContent=s.ok?'Todas as condições configuradas passaram.':'Uma ou mais condições não foram confirmadas.';let labels=['EMA 9 acima da EMA 21','Fechamento acima das duas médias','RSI entre 50 e 65','MACD acima da linha de sinal','Volume ≥ 80% da média de 20'];$('checks').innerHTML=labels.map((l,i)=>`<tr><td>${l}</td><td>${[x.e9>x.e21,x.close>x.e9&&x.close>x.e21,x.rsi>=50&&x.rsi<=65,x.mac>x.ms,x.volume>=x.volavg*.8][i]?'Confirmado':'Não confirmado'}</td><td>${s.checks[i]?'✓':'—'}</td></tr>`).join('');draw(d);return d}
+function backtest(){if(!rows.length){alert('Carregue os dados primeiro.');return}let d=calc(rows),capital=Number($('capital').value),risk=Number($('risk').value)/100,stop=Number($('stop').value)/100,target=Number($('target').value)/100;if(!(capital>0&&risk>0&&risk<=.02&&stop>0&&target>0)){alert('Confira os parâmetros. Risco por operação deve ser maior que zero e no máximo 2%.');return}let balance=capital,pos=null,trades=[],peak=capital,maxdd=0;for(let i=22;i<d.length;i++){let x=d[i],s=signalAt(x);if(pos){let exit=null,reason='';if(x.low<=pos.entry*(1-stop)){exit=pos.entry*(1-stop);reason='Stop'}else if(x.high>=pos.entry*(1+target)){exit=pos.entry*(1+target);reason='Alvo'}else if(!s.ok){exit=x.close;reason='Sinal contrário'}if(exit!==null){let pnl=(exit-pos.entry)*pos.qty;balance+=pnl;trades.push({...pos,exitDate:x.date,exit, pnl,reason});pos=null}}else if(s.ok){let riskCash=balance*risk,qty=riskCash/(x.close*stop);pos={date:x.date,entry:x.close,qty};}peak=Math.max(peak,balance);maxdd=Math.max(maxdd,(peak-balance)/peak)}if(pos){let x=d[d.length-1],pnl=(x.close-pos.entry)*pos.qty;balance+=pnl;trades.push({...pos,exitDate:x.date,exit:x.close,pnl,reason:'Fim do histórico'});peak=Math.max(peak,balance);maxdd=Math.max(maxdd,(peak-balance)/peak)}let wins=trades.filter(t=>t.pnl>0),grossWin=wins.reduce((a,t)=>a+t.pnl,0),grossLoss=Math.abs(trades.filter(t=>t.pnl<0).reduce((a,t)=>a+t.pnl,0));$('finalBalance').textContent=money(balance);$('trades').textContent=trades.length;$('winrate').textContent=trades.length?fmt(wins.length/trades.length*100)+'%':'—';$('net').textContent=money(balance-capital);$('net').className=balance>=capital?'good':'bad';$('profitFactor').textContent=grossLoss?fmt(grossWin/grossLoss):(grossWin?'∞':'—');$('drawdown').textContent=fmt(maxdd*100)+'%';$('tradeRows').innerHTML=trades.length?trades.slice().reverse().map(t=>`<tr><td>${t.date}</td><td>${t.exitDate}</td><td>${fmt(t.entry)}</td><td>${fmt(t.exit)}</td><td class="${t.pnl>=0?'good':'bad'}">${money(t.pnl)}</td><td>${t.reason}</td></tr>`).join(''):'<tr><td colspan="6" class="muted">Nenhuma operação foi gerada com estas regras.</td></tr>'}
+$('file').addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;try{rows=parseCSV(await f.text());render();$('ticker').value=$('ticker').value||f.name.replace(/\.[^.]+$/,'')}catch(err){alert(err.message)}});
+$('loadSample').addEventListener('click',()=>{let arr=[],p=30;for(let i=0;i<180;i++){let drift=i>70&&i<125?.12:(i>145?-.08:.025);p=Math.max(5,p+drift+Math.sin(i/5)*.22+Math.cos(i/11)*.12);arr.push({date:new Date(2025,0,1+i).toISOString().slice(0,10),open:p-.1,high:p+.35,low:p-.35,close:p,volume:100000+Math.round(35000*(1+Math.sin(i/7)))})}rows=arr;$('ticker').value='EXEMPLO';render();backtest()});
+$('runBacktest').addEventListener('click',backtest);
+</script>
+</body></html>
